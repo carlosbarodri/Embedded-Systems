@@ -1,0 +1,26 @@
+//Maestro Chetado
+#include <Arduino.h>
+
+HardwareSerial Sender(1);
+
+#define potenciometro 14
+#define potenciometro2 34
+
+int valor = 0 ;
+int data1 = 0 ;
+int data2 = 0;
+
+void setup() {
+  Serial.begin(115200);
+  Sender.begin(115200,SERIAL_8N1,17,16);
+}
+
+void loop() {
+  valor = analogRead(potenciometro);
+  data1 = valor*255/4095;
+  data2 = analogRead(potenciometro2);
+  Sender.print(data1); Sender.print("A"); 
+  Sender.print(data2); Sender.print("B");
+  Sender.print("\n");  
+  delay(1000);
+}

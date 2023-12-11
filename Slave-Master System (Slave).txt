@@ -1,0 +1,118 @@
+//Esclavo Chetado
+#include <Arduino.h>
+#include <ESP32Servo.h>
+HardwareSerial Receiver(2);
+
+#define LED 18
+
+char c;
+String dataIn;
+int8_t indexofA, indexofB;
+String data1,data2;
+
+int brillodeled_y_velocidaddemotor = 0;
+int posiciondemotor = 0;
+int salidas[] = {27,14,12,13};
+int d = 0;
+int bandera = 0;
+int alreves = 0;
+int grados = 0;
+
+unsigned long tiempo=0;
+unsigned long tiempo2=0;
+
+#define SERVOpin 19
+Servo myservo;
+
+void setup() {
+  Serial.begin(115200);
+  Receiver.begin(115200,SERIAL_8N1,17,16);
+  for(int i=0; i<4;i++){
+    pinMode(salidas[i],OUTPUT);
+  }
+
+  myservo.attach(SERVOpin);
+}
+
+void Parse_the_Data(){
+
+  indexofA = dataIn.indexOf("A");
+  indexofB = dataIn.indexOf("B");
+
+  data1 = dataIn.substring(0,indexofA);
+  data2 = dataIn.substring(indexofA+1,indexofB);
+}
+
+void loop() {
+  while(Receiver.available()){
+    c = Receiver.read();
+    if (c=='\n') {break;}
+    else {dataIn+=c;}
+  }
+
+  //Código a programar
+
+  brillodeled_y_velocidaddemotor = data1.toInt(); //Valores de 0-255
+  posiciondemotor = data2.toInt(); //Valores de 0-4095
+
+  analogWrite(LED,brillodeled_y_velocidaddemotor);
+
+  alreves=-1*(brillodeled_y_velocidaddemotor-255);
+  grados = posiciondemotor*180/4095;
+
+  if (alreves<=2){
+    bandera=1;
+    d = 2;
+  }
+  else{
+    bandera=1;
+    if (alreves>=10){
+      d = alreves/10;
+    }
+    else{
+      d = alreves;
+    }
+  }
+
+  if (alreves==255){
+    bandera=0;
+  }
+  Serial.println(posiciondemotor);
+
+  if (bandera==1){
+    digitalWrite(salidas[0],HIGH);
+    digitalWrite(salidas[1],LOW);
+    digitalWrite(salidas[2],LOW);
+    digitalWrite(salidas[3],LOW);
+    delay(d);
+    digitalWrite(salidas[0],LOW);
+    digitalWrite(salidas[1],HIGH);
+    digitalWrite(salidas[2],LOW);
+    digitalWrite(salidas[3],LOW);
+    delay(d);
+    digitalWrite(salidas[0],LOW);
+    digitalWrite(salidas[1],LOW);
+    digitalWrite(salidas[2],HIGH);
+    digitalWrite(salidas[3],LOW);
+    delay(d);
+    digitalWrite(salidas[0],LOW);
+    digitalWrite(salidas[1],LOW);
+    digitalWrite(salidas[2],LOW);
+    digitalWrite(salidas[3],HIGH);
+    delay(d);
+  }
+
+  tiempo =millis();
+
+  myservo.write(grados);
+
+
+  //Fin de código a programar
+
+  if (c=='\n'){
+    Parse_the_Data();
+
+    c = 0;
+    dataIn="";
+  }
+}

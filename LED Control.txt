@@ -1,0 +1,49 @@
+#include <Arduino.h>
+
+#define LED1 25
+#define LED2 33
+#define BOTON1 22
+#define BOTON2 23
+
+int apachurrado1= 0;
+int apachurrado2= 0;
+
+void setup(){
+  pinMode(LED1, OUTPUT);
+  pinMode(BOTON1, INPUT_PULLDOWN);
+  Serial.begin(115200);
+
+  pinMode(LED2, OUTPUT);
+  pinMode(BOTON2, INPUT_PULLDOWN);
+}
+
+void loop(){
+  apachurrado1=digitalRead(BOTON1);
+  apachurrado2=digitalRead(BOTON2);
+
+  if(apachurrado1==1 && apachurrado2==1){
+    digitalWrite(LED1, HIGH);
+    digitalWrite(LED2, HIGH);
+    delay(750);
+   
+    digitalWrite(LED1, LOW);
+    digitalWrite(LED2, LOW);
+    delay(750);
+  }
+  else if(apachurrado1){
+    digitalWrite(LED1, HIGH);
+    delay(250);
+    digitalWrite(LED1, LOW);
+    delay(250);
+  }
+  else if(apachurrado2) {
+    digitalWrite(LED2, HIGH);
+    delay(250);
+    digitalWrite(LED2, LOW);
+    delay(250);
+  }
+  else{
+    digitalWrite(LED1, LOW);
+    digitalWrite(LED2, LOW);
+  }
+}

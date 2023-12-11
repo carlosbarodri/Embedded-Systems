@@ -1,0 +1,913 @@
+//DECLARACIONES
+#include <Arduino.h>
+#include <WiFi.h>
+#include <WiFiClient.h>
+#include <WiFiAP.h>
+
+//DEFINICIONES
+#define encendido_apagado 13
+#define led 23
+
+int push_buttons[3] = {12,14,27};
+int button_V1=0;
+int button_V2=0;
+int button_P1=0;
+int on_off = 0;
+
+unsigned long tiempo=0;
+unsigned long tiempo2=0;
+
+int LEDS[] = {26,25,33,32,15,2,4,5,18,19,21,22};
+
+int arreglo[5][12] = {    { 0,0,0,0,0,0,0,0,0,0,0,0 }, // APAGADO AMBOS COMUNES (Posición 0)
+
+                          { 1,1,1,1,0,0,0,1,1,0,1,0 }, // V COMUN 1 (Posición 1)
+                          { 1,0,0,1,1,1,0,1,1,1,0,1 }, // 1 COMUN 2 (Posición 2)
+                          { 0,0,1,0,0,1,1,0,0,1,0,1 }, // 2 COMUN 2 (Posición 3)
+                          { 0,0,1,1,0,0,1,0,0,1,1,0 }}; // P COMUN 1 (Posición 4)
+
+const char *ssid = "Equipo Dinamita";
+const char *password = "12345678";
+
+WiFiServer server(80);
+
+//FUNCIONES
+
+void escribirNumero(int valor){
+  for (int j=0; j<12; j++){
+    //recorrer cada pin y asignarle los valores correspondientes
+    digitalWrite(LEDS[j], arreglo[valor][j]);
+  }
+}
+
+void fisico(int button_V1,int button_V2,int button_P1){
+
+  if (on_off){
+
+    if (button_V1){
+
+      tiempo =millis();
+
+      escribirNumero(1);
+      delay(10);
+      escribirNumero(2);
+      delay(10);
+
+      if (tiempo-tiempo2<=200){
+
+        if (tiempo-tiempo2<=100)
+          digitalWrite(led,HIGH);
+          else
+          digitalWrite(led,LOW);
+      }
+      else
+        tiempo2=tiempo;
+
+
+    }
+    else if (button_V2){
+
+      tiempo =millis();
+      
+      escribirNumero(1);
+      delay(10);
+      escribirNumero(3);
+      delay(10);
+
+      if (tiempo-tiempo2<=200){
+
+        if (tiempo-tiempo2<=100)
+          digitalWrite(led,HIGH);
+          else
+          digitalWrite(led,LOW);
+      }
+      else
+        tiempo2=tiempo;
+    }
+    else if (button_P1){
+      
+      tiempo =millis();
+
+      escribirNumero(4);
+      delay(10);
+      escribirNumero(2);
+      delay(10);
+    
+      if (tiempo-tiempo2<=200){
+
+        if (tiempo-tiempo2<=100)
+          digitalWrite(led,HIGH);
+          else
+          digitalWrite(led,LOW);
+      }
+      else
+        tiempo2=tiempo;
+    }
+    else{
+      escribirNumero(0);
+      digitalWrite(led,HIGH);
+      delay(500);
+      digitalWrite(led,LOW);
+      delay(500);
+    }
+  }
+
+}
+
+//CONFIGURACIONES
+void setup() {
+  //INPUTS
+  pinMode(encendido_apagado,INPUT_PULLDOWN);
+  for (int i=0;i<3;i++){
+    pinMode(push_buttons[i],INPUT_PULLDOWN);
+  }
+  //OUTPUTS
+  pinMode(led,OUTPUT);
+  for (int j=0;j<12;j++){
+    pinMode(LEDS[j],OUTPUT);
+  }
+
+  Serial.begin(115200);
+  Serial.println();
+  Serial.println("Configurando punto de acceso...");
+
+  WiFi.softAP(ssid, password);
+  IPAddress myIP = WiFi.softAPIP();
+  Serial.print("Direccion IP: ");
+  Serial.println(myIP);
+  server.begin();
+
+  Serial.println("Servidor iniciado");
+}
+
+//BUCLE PRINCIPAL
+void loop() {
+
+  on_off = digitalRead(encendido_apagado);
+
+  if (on_off){
+
+    button_V1 = digitalRead(push_buttons[0]);
+    button_V2 = digitalRead(push_buttons[1]);
+    button_P1 = digitalRead(push_buttons[2]);
+
+    fisico(button_V1,button_V2,button_P1);
+
+    int bandera=0;
+    int opcion = 0;
+    WiFiClient client = server.available();   //Esperar clientes entrantes
+    if (client) {                             // si se conecta un cliente,
+      Serial.println("Nuevo Cliente.");       // imprimir un mensaje en el puerto serial
+      String currentLine = "";                // crear cadena vacia para guardar datos del cliente
+      while (client.connected()) {            // ciclar mientras el cliente esta conectado
+        if (client.available()) {             // si hay bytes para leer del cliente,
+          char c = client.read();             // leer un byte, entonces
+          Serial.write(c);                    // imprimirlo en el monitor serial
+          if (c == '\n') {                    // si el byte es una nueva linea...
+
+            // si el caracter actual es un final de linea, se tienen dos finales de linea seguidos
+            // ese es el final de la petición HTTP del cliente, entonces se debe enviar respuesta:
+            if (currentLine.length() == 0) {
+              // Los encabezados HTTP siempre inician con un código de respuesta (HTTP/1.1 200 OK)
+              client.println("HTTP/1.1 200 OK");
+              // y un tipo de contenido para que el cliente sepa el contenido que le enviarán, luego una línea en blanco:
+              client.println("Content-type:text/html");
+              client.println();
+
+              // el contenido de la respuesta HTTP va después de la respuesta:
+              // mostrar un texto con un hipervinculo para encender el LED
+
+
+              if (button_V1){
+                client.print("<!DOCTYPE html>");
+                client.print("<html lang='en'>");
+                client.print("<head>");
+                client.print("<meta charset='UTF-8'>");
+                client.print("<meta http-equiv='X-UA-Compatible' content='IE=edge'>");
+                client.print("<meta name='viewport' content='width=device-width, initial-scale=1.0'>");
+                client.print("<title>Alarma</title>");
+                client.print("<style>	");
+                client.print("html {");
+                client.print("line-height: 1.15; ");
+                client.print("-webkit-text-size-adjust: 100%; ");
+                client.print("}");
+                client.print("body {");
+                client.print("margin: 0;");
+                client.print("}");
+                client.print("main {");
+                client.print("display: block;");
+                client.print("}");
+                client.print("h1 {");
+                client.print("font-size: 2em;");
+                client.print("margin: 0.67em 0;");
+                client.print("}");
+                client.print("hr {");
+                client.print("box-sizing: content-box; ");
+                client.print("height: 0; ");
+                client.print("overflow: visible; ");
+                client.print("}");
+                client.print("pre {");
+                client.print("font-family: monospace, monospace; ");
+                client.print("font-size: 1em; ");
+                client.print("}");
+                client.print("a {");
+                client.print("background-color: transparent;");
+                client.print("}");
+                client.print("abbr[title] {");
+                client.print("border-bottom: none; ");
+                client.print("text-decoration: underline; ");
+                client.print("text-decoration: underline dotted; ");
+                client.print("}");
+                client.print("b,");
+                client.print("strong {");
+                client.print("font-weight: bolder;");
+                client.print("}");
+                client.print("code,");
+                client.print("kbd,");
+                client.print("samp {");
+                client.print("font-family: monospace, monospace; ");
+                client.print("font-size: 1em; ");
+                client.print("}");
+                client.print("small {");
+                client.print("font-size: 80%;");
+                client.print("}");
+                client.print("sub,");
+                client.print("sup {");
+                client.print("font-size: 75%;");
+                client.print("line-height: 0;");
+                client.print("position: relative;");
+                client.print("vertical-align: baseline;");
+                client.print("}");
+                client.print("sub {");
+                client.print("bottom: -0.25em;");
+                client.print("}");
+                client.print("sup {");
+                client.print("top: -0.5em;");
+                client.print("}");
+                client.print("img {");
+                client.print("border-style: none;");
+                client.print("}");
+                client.print("button,");
+                client.print("input,");
+                client.print("optgroup,");
+                client.print("select,");
+                client.print("textarea {");
+                client.print("font-family: inherit; ");
+                client.print("font-size: 100%; ");
+                client.print("line-height: 1.15; ");
+                client.print("margin: 0; ");
+                client.print("}");
+                client.print("button,");
+                client.print("input {");
+                client.print("overflow: visible;");
+                client.print("}");
+                client.print("button,");
+                client.print("select {");
+                client.print("text-transform: none;");
+                client.print("}");
+                client.print("button,");
+                client.print("[type='button'],");
+                client.print("[type='reset'],");
+                client.print("[type='submit'] {");
+                client.print("-webkit-appearance: button;");
+                client.print("}");
+                client.print("button::-moz-focus-inner,");
+                client.print("[type='button']::-moz-focus-inner,");
+                client.print("[type='reset']::-moz-focus-inner,");
+                client.print("[type='submit']::-moz-focus-inner {");
+                client.print("border-style: none;");
+                client.print("padding: 0;");
+                client.print("}");
+                client.print("button:-moz-focusring,");
+                client.print("[type='button']:-moz-focusring,");
+                client.print("[type='reset']:-moz-focusring,");
+                client.print("[type='submit']:-moz-focusring {");
+                client.print("outline: 1px dotted ButtonText;");
+                client.print("}");
+                client.print("fieldset {");
+                client.print("padding: 0.35em 0.75em 0.625em;");
+                client.print("}");
+                client.print("legend {");
+                client.print("box-sizing: border-box;");
+                client.print("color: inherit; ");
+                client.print("display: table; ");
+                client.print("max-width: 100%; ");
+                client.print("padding: 0; ");
+                client.print("white-space: normal; ");
+                client.print("}");
+                client.print("progress {");
+                client.print("vertical-align: baseline;");
+                client.print("}");
+                client.print("textarea {");
+                client.print("overflow: auto;");
+                client.print("}");
+                client.print("[type='checkbox'],");
+                client.print("[type='radio'] {");
+                client.print("box-sizing: border-box; ");
+                client.print("padding: 0;");
+                client.print("}");
+                client.print("[type='number']::-webkit-inner-spin-button,");
+                client.print("[type='number']::-webkit-outer-spin-button {");
+                client.print("height: auto;");
+                client.print("}");
+                client.print("[type='search'] {");
+                client.print("-webkit-appearance: textfield; ");
+                client.print("outline-offset: -2px; ");
+                client.print("}");
+                client.print("[type='search']::-webkit-search-decoration {");
+                client.print("-webkit-appearance: none;");
+                client.print("}");
+                client.print("::-webkit-file-upload-button {");
+                client.print("-webkit-appearance: button; ");
+                client.print("font: inherit; ");
+                client.print("}");
+                client.print("details {");
+                client.print("display: block;");
+                client.print("}");
+                client.print("summary {");
+                client.print("display: list-item;");
+                client.print("}");
+                client.print("template {");
+                client.print("display: none;");
+                client.print("}");
+                client.print("[hidden] {");
+                client.print("display: none;");
+                client.print("}");
+                client.print("</style>");
+                client.print("<style>");
+                client.print(":root{");
+                client.print("--rojo: rgb(255,5,5);");
+                client.print("--verde: rgb(227,115,227);");
+                client.print("}");
+                client.print("body{");
+                client.print("font-size: 1.3rem;");
+                client.print("}");
+                client.print("h1{");
+                client.print("font-size: 3rem;");
+                client.print("}");
+                client.print(".contenedor{");
+                client.print("width: min(80%,120rem);");
+                client.print("margin: 0 auto;");
+                client.print("line-height: 0.8;");
+                client.print("}");
+                client.print(".centrar{");
+                client.print("text-align: center;");
+                client.print("}");
+                client.print(".color{");
+                client.print("color: var(--rojo);");
+                client.print("}");
+                client.print(".boton{");
+                client.print("width: 100%;");
+                client.print("height: 100%;");
+                client.print("border-radius: .5rem;");
+                client.print("font-weight: bold;");
+                client.print("text-decoration: none;");
+                client.print("text-transform: uppercase;");
+                client.print("background-color: var(--verde);");
+                client.print("}");
+                client.print(".senal{");
+                client.print("margin-top: 5rem;");
+                client.print("height: 5rem;");
+                client.print("width: 100%;");
+                client.print("}");
+                client.print("</style>");
+                client.print("</head>");
+                client.print("<body>");
+                client.print("<div class='contenedor'>");
+                client.print("<h1 class='centrar'>Alarma V1</h1>");
+                client.print("<h1 class='centrar color'>¡Activada!</h1>");
+                client.print("<p class='senal'><a href='/apagarV1'><button class='boton boton--color4' >DESACTIVAR</button></a></p>");
+                client.print("</div>");
+                client.print("</body>");
+                client.print("</html>");
+              }
+              else if (button_V2){
+                client.print("<!DOCTYPE html>");
+                client.print("<html lang='en'>");
+                client.print("<head>");
+                client.print("<meta charset='UTF-8'>");
+                client.print("<meta http-equiv='X-UA-Compatible' content='IE=edge'>");
+                client.print("<meta name='viewport' content='width=device-width, initial-scale=1.0'>");
+                client.print("<title>Alarma</title>");
+                client.print("<style>	");
+                client.print("html {");
+                client.print("line-height: 1.15; ");
+                client.print("-webkit-text-size-adjust: 100%; ");
+                client.print("}");
+                client.print("body {");
+                client.print("margin: 0;");
+                client.print("}");
+                client.print("main {");
+                client.print("display: block;");
+                client.print("}");
+                client.print("h1 {");
+                client.print("font-size: 2em;");
+                client.print("margin: 0.67em 0;");
+                client.print("}");
+                client.print("hr {");
+                client.print("box-sizing: content-box; ");
+                client.print("height: 0; ");
+                client.print("overflow: visible; ");
+                client.print("}");
+                client.print("pre {");
+                client.print("font-family: monospace, monospace; ");
+                client.print("font-size: 1em; ");
+                client.print("}");
+                client.print("a {");
+                client.print("background-color: transparent;");
+                client.print("}");
+                client.print("abbr[title] {");
+                client.print("border-bottom: none; ");
+                client.print("text-decoration: underline; ");
+                client.print("text-decoration: underline dotted; ");
+                client.print("}");
+                client.print("b,");
+                client.print("strong {");
+                client.print("font-weight: bolder;");
+                client.print("}");
+                client.print("code,");
+                client.print("kbd,");
+                client.print("samp {");
+                client.print("font-family: monospace, monospace; ");
+                client.print("font-size: 1em; ");
+                client.print("}");
+                client.print("small {");
+                client.print("font-size: 80%;");
+                client.print("}");
+                client.print("sub,");
+                client.print("sup {");
+                client.print("font-size: 75%;");
+                client.print("line-height: 0;");
+                client.print("position: relative;");
+                client.print("vertical-align: baseline;");
+                client.print("}");
+                client.print("sub {");
+                client.print("bottom: -0.25em;");
+                client.print("}");
+                client.print("sup {");
+                client.print("top: -0.5em;");
+                client.print("}");
+                client.print("img {");
+                client.print("border-style: none;");
+                client.print("}");
+                client.print("button,");
+                client.print("input,");
+                client.print("optgroup,");
+                client.print("select,");
+                client.print("textarea {");
+                client.print("font-family: inherit; ");
+                client.print("font-size: 100%; ");
+                client.print("line-height: 1.15; ");
+                client.print("margin: 0; ");
+                client.print("}");
+                client.print("button,");
+                client.print("input {");
+                client.print("overflow: visible;");
+                client.print("}");
+                client.print("button,");
+                client.print("select {");
+                client.print("text-transform: none;");
+                client.print("}");
+                client.print("button,");
+                client.print("[type='button'],");
+                client.print("[type='reset'],");
+                client.print("[type='submit'] {");
+                client.print("-webkit-appearance: button;");
+                client.print("}");
+                client.print("button::-moz-focus-inner,");
+                client.print("[type='button']::-moz-focus-inner,");
+                client.print("[type='reset']::-moz-focus-inner,");
+                client.print("[type='submit']::-moz-focus-inner {");
+                client.print("border-style: none;");
+                client.print("padding: 0;");
+                client.print("}");
+                client.print("button:-moz-focusring,");
+                client.print("[type='button']:-moz-focusring,");
+                client.print("[type='reset']:-moz-focusring,");
+                client.print("[type='submit']:-moz-focusring {");
+                client.print("outline: 1px dotted ButtonText;");
+                client.print("}");
+                client.print("fieldset {");
+                client.print("padding: 0.35em 0.75em 0.625em;");
+                client.print("}");
+                client.print("legend {");
+                client.print("box-sizing: border-box;");
+                client.print("color: inherit; ");
+                client.print("display: table; ");
+                client.print("max-width: 100%; ");
+                client.print("padding: 0; ");
+                client.print("white-space: normal; ");
+                client.print("}");
+                client.print("progress {");
+                client.print("vertical-align: baseline;");
+                client.print("}");
+                client.print("textarea {");
+                client.print("overflow: auto;");
+                client.print("}");
+                client.print("[type='checkbox'],");
+                client.print("[type='radio'] {");
+                client.print("box-sizing: border-box; ");
+                client.print("padding: 0;");
+                client.print("}");
+                client.print("[type='number']::-webkit-inner-spin-button,");
+                client.print("[type='number']::-webkit-outer-spin-button {");
+                client.print("height: auto;");
+                client.print("}");
+                client.print("[type='search'] {");
+                client.print("-webkit-appearance: textfield; ");
+                client.print("outline-offset: -2px; ");
+                client.print("}");
+                client.print("[type='search']::-webkit-search-decoration {");
+                client.print("-webkit-appearance: none;");
+                client.print("}");
+                client.print("::-webkit-file-upload-button {");
+                client.print("-webkit-appearance: button; ");
+                client.print("font: inherit; ");
+                client.print("}");
+                client.print("details {");
+                client.print("display: block;");
+                client.print("}");
+                client.print("summary {");
+                client.print("display: list-item;");
+                client.print("}");
+                client.print("template {");
+                client.print("display: none;");
+                client.print("}");
+                client.print("[hidden] {");
+                client.print("display: none;");
+                client.print("}");
+                client.print("</style>");
+                client.print("<style>");
+                client.print(":root{");
+                client.print("--rojo: rgb(255,5,5);");
+                client.print("--verde: rgb(227,115,227);");
+                client.print("}");
+                client.print("body{");
+                client.print("font-size: 1.3rem;");
+                client.print("}");
+                client.print("h1{");
+                client.print("font-size: 3rem;");
+                client.print("}");
+                client.print(".contenedor{");
+                client.print("width: min(80%,120rem);");
+                client.print("margin: 0 auto;");
+                client.print("line-height: 0.8;");
+                client.print("}");
+                client.print(".centrar{");
+                client.print("text-align: center;");
+                client.print("}");
+                client.print(".color{");
+                client.print("color: var(--rojo);");
+                client.print("}");
+                client.print(".boton{");
+                client.print("width: 100%;");
+                client.print("height: 100%;");
+                client.print("border-radius: .5rem;");
+                client.print("font-weight: bold;");
+                client.print("text-decoration: none;");
+                client.print("text-transform: uppercase;");
+                client.print("background-color: var(--verde);");
+                client.print("}");
+                client.print(".senal{");
+                client.print("margin-top: 5rem;");
+                client.print("height: 5rem;");
+                client.print("width: 100%;");
+                client.print("}");
+                client.print("</style>");
+                client.print("</head>");
+                client.print("<body>");
+                client.print("<div class='contenedor'>");
+                client.print("<h1 class='centrar'>Alarma V2</h1>");
+                client.print("<h1 class='centrar color'>¡Activada!</h1>");
+                client.print("<p class='senal'><a href='/apagarV2'><button class='boton boton--color4' >DESACTIVAR</button></a></p>");
+                client.print("</div>");
+                client.print("</body>");
+                client.print("</html>");
+              }
+              else if (button_P1){
+                client.print("<!DOCTYPE html>");
+                client.print("<html lang='en'>");
+                client.print("<head>");
+                client.print("<meta charset='UTF-8'>");
+                client.print("<meta http-equiv='X-UA-Compatible' content='IE=edge'>");
+                client.print("<meta name='viewport' content='width=device-width, initial-scale=1.0'>");
+                client.print("<title>Alarma</title>");
+                client.print("<style>	");
+                client.print("html {");
+                client.print("line-height: 1.15; ");
+                client.print("-webkit-text-size-adjust: 100%; ");
+                client.print("}");
+                client.print("body {");
+                client.print("margin: 0;");
+                client.print("}");
+                client.print("main {");
+                client.print("display: block;");
+                client.print("}");
+                client.print("h1 {");
+                client.print("font-size: 2em;");
+                client.print("margin: 0.67em 0;");
+                client.print("}");
+                client.print("hr {");
+                client.print("box-sizing: content-box; ");
+                client.print("height: 0; ");
+                client.print("overflow: visible; ");
+                client.print("}");
+                client.print("pre {");
+                client.print("font-family: monospace, monospace; ");
+                client.print("font-size: 1em; ");
+                client.print("}");
+                client.print("a {");
+                client.print("background-color: transparent;");
+                client.print("}");
+                client.print("abbr[title] {");
+                client.print("border-bottom: none; ");
+                client.print("text-decoration: underline; ");
+                client.print("text-decoration: underline dotted; ");
+                client.print("}");
+                client.print("b,");
+                client.print("strong {");
+                client.print("font-weight: bolder;");
+                client.print("}");
+                client.print("code,");
+                client.print("kbd,");
+                client.print("samp {");
+                client.print("font-family: monospace, monospace; ");
+                client.print("font-size: 1em; ");
+                client.print("}");
+                client.print("small {");
+                client.print("font-size: 80%;");
+                client.print("}");
+                client.print("sub,");
+                client.print("sup {");
+                client.print("font-size: 75%;");
+                client.print("line-height: 0;");
+                client.print("position: relative;");
+                client.print("vertical-align: baseline;");
+                client.print("}");
+                client.print("sub {");
+                client.print("bottom: -0.25em;");
+                client.print("}");
+                client.print("sup {");
+                client.print("top: -0.5em;");
+                client.print("}");
+                client.print("img {");
+                client.print("border-style: none;");
+                client.print("}");
+                client.print("button,");
+                client.print("input,");
+                client.print("optgroup,");
+                client.print("select,");
+                client.print("textarea {");
+                client.print("font-family: inherit; ");
+                client.print("font-size: 100%; ");
+                client.print("line-height: 1.15; ");
+                client.print("margin: 0; ");
+                client.print("}");
+                client.print("button,");
+                client.print("input {");
+                client.print("overflow: visible;");
+                client.print("}");
+                client.print("button,");
+                client.print("select {");
+                client.print("text-transform: none;");
+                client.print("}");
+                client.print("button,");
+                client.print("[type='button'],");
+                client.print("[type='reset'],");
+                client.print("[type='submit'] {");
+                client.print("-webkit-appearance: button;");
+                client.print("}");
+                client.print("button::-moz-focus-inner,");
+                client.print("[type='button']::-moz-focus-inner,");
+                client.print("[type='reset']::-moz-focus-inner,");
+                client.print("[type='submit']::-moz-focus-inner {");
+                client.print("border-style: none;");
+                client.print("padding: 0;");
+                client.print("}");
+                client.print("button:-moz-focusring,");
+                client.print("[type='button']:-moz-focusring,");
+                client.print("[type='reset']:-moz-focusring,");
+                client.print("[type='submit']:-moz-focusring {");
+                client.print("outline: 1px dotted ButtonText;");
+                client.print("}");
+                client.print("fieldset {");
+                client.print("padding: 0.35em 0.75em 0.625em;");
+                client.print("}");
+                client.print("legend {");
+                client.print("box-sizing: border-box;");
+                client.print("color: inherit; ");
+                client.print("display: table; ");
+                client.print("max-width: 100%; ");
+                client.print("padding: 0; ");
+                client.print("white-space: normal; ");
+                client.print("}");
+                client.print("progress {");
+                client.print("vertical-align: baseline;");
+                client.print("}");
+                client.print("textarea {");
+                client.print("overflow: auto;");
+                client.print("}");
+                client.print("[type='checkbox'],");
+                client.print("[type='radio'] {");
+                client.print("box-sizing: border-box; ");
+                client.print("padding: 0;");
+                client.print("}");
+                client.print("[type='number']::-webkit-inner-spin-button,");
+                client.print("[type='number']::-webkit-outer-spin-button {");
+                client.print("height: auto;");
+                client.print("}");
+                client.print("[type='search'] {");
+                client.print("-webkit-appearance: textfield; ");
+                client.print("outline-offset: -2px; ");
+                client.print("}");
+                client.print("[type='search']::-webkit-search-decoration {");
+                client.print("-webkit-appearance: none;");
+                client.print("}");
+                client.print("::-webkit-file-upload-button {");
+                client.print("-webkit-appearance: button; ");
+                client.print("font: inherit; ");
+                client.print("}");
+                client.print("details {");
+                client.print("display: block;");
+                client.print("}");
+                client.print("summary {");
+                client.print("display: list-item;");
+                client.print("}");
+                client.print("template {");
+                client.print("display: none;");
+                client.print("}");
+                client.print("[hidden] {");
+                client.print("display: none;");
+                client.print("}");
+                client.print("</style>");
+                client.print("<style>");
+                client.print(":root{");
+                client.print("--rojo: rgb(255,5,5);");
+                client.print("--verde: rgb(227,115,227);");
+                client.print("}");
+                client.print("body{");
+                client.print("font-size: 1.3rem;");
+                client.print("}");
+                client.print("h1{");
+                client.print("font-size: 3rem;");
+                client.print("}");
+                client.print(".contenedor{");
+                client.print("width: min(80%,120rem);");
+                client.print("margin: 0 auto;");
+                client.print("line-height: 0.8;");
+                client.print("}");
+                client.print(".centrar{");
+                client.print("text-align: center;");
+                client.print("}");
+                client.print(".color{");
+                client.print("color: var(--rojo);");
+                client.print("}");
+                client.print(".boton{");
+                client.print("width: 100%;");
+                client.print("height: 100%;");
+                client.print("border-radius: .5rem;");
+                client.print("font-weight: bold;");
+                client.print("text-decoration: none;");
+                client.print("text-transform: uppercase;");
+                client.print("background-color: var(--verde);");
+                client.print("}");
+                client.print(".senal{");
+                client.print("margin-top: 5rem;");
+                client.print("height: 5rem;");
+                client.print("width: 100%;");
+                client.print("}");
+                client.print("</style>");
+                client.print("</head>");
+                client.print("<body>");
+                client.print("<div class='contenedor'>");
+                client.print("<h1 class='centrar'>Alarma P1</h1>");
+                client.print("<h1 class='centrar color'>¡Activada!</h1>");
+                client.print("<p class='senal'><a href='/apagarP1'><button class='boton boton--color4' >DESACTIVAR</button></a></p>");
+                client.print("</div>");
+                client.print("</body>");
+                client.print("</html>");
+              }
+              else{
+                client.print("<!DOCTYPE html>");
+                client.print("<html lang='en'>");
+                client.print("<head>");
+                client.print("<meta charset='UTF-8'>");
+                client.print("<meta http-equiv='X-UA-Compatible' content='IE=edge'>");
+                client.print("<meta name='viewport' content='width=device-width, initial-scale=1.0'>");
+                client.print("<title>Alarma</title>");
+                client.print("</head>");
+                client.print("<body>");
+                client.print("<h1>Alarmas desactivadas</h1>");
+                client.print("</body>");
+                client.print("</html>");
+              }
+
+              // mostrar un texto con un hipervinculo para apagar el LED
+
+              // La respuesta HTTP termina con otra linea en blanco:
+              client.println();
+              // romper el bucle
+              break;
+            } else {    // si se detecta una nueva linea, limpiarla:
+              currentLine = "";
+            }
+          } else if (c != '\r') {  // si se detecta cualquier cosa, excepto un retorno de carro,
+            currentLine += c;      // añadirlo a la línea actual
+          }
+
+          // Revisar si la petición del cliente fue "GET /H" o "GET /L":
+
+
+
+          if (currentLine.endsWith("GET /apagarV1")){
+            fisico(0,0,0);
+            bandera=1;           // GET /H enciende el LE
+          }
+          else if (currentLine.endsWith("GET /apagarV2")){
+            fisico(0,0,0);
+            bandera=2;  
+          }         // GET /L apaga el LED
+          else if (currentLine.endsWith("GET /apagarP1")){
+            fisico(0,0,0);
+            bandera=3; 
+          }
+
+        }
+
+        
+      }
+      // cerrar la conexión:
+      client.stop();
+      Serial.println("Client Disconnected.");
+    }
+
+    if (bandera==1){
+
+      do{
+
+        escribirNumero(0);
+        tiempo =millis();
+      
+        if (tiempo-tiempo2<=1000){
+  
+          if (tiempo-tiempo2<=500)
+            digitalWrite(led,HIGH);
+            else
+            digitalWrite(led,LOW);
+        }
+        else
+          tiempo2=tiempo;
+  
+        button_V1 = digitalRead(push_buttons[0]);
+
+      }while(button_V1==1);
+    }
+    else if (bandera==2){
+      
+      do{
+
+        escribirNumero(0);
+        tiempo =millis();
+      
+        if (tiempo-tiempo2<=1000){
+  
+          if (tiempo-tiempo2<=500)
+            digitalWrite(led,HIGH);
+            else
+            digitalWrite(led,LOW);
+        }
+        else
+          tiempo2=tiempo;
+  
+        button_V2 = digitalRead(push_buttons[1]);
+        
+      }while(button_V2==1);
+    }
+    else if (bandera==3){
+
+      do{
+
+        escribirNumero(0);
+        tiempo =millis();
+      
+        if (tiempo-tiempo2<=1000){
+  
+          if (tiempo-tiempo2<=500)
+            digitalWrite(led,HIGH);
+            else
+            digitalWrite(led,LOW);
+        }
+        else
+          tiempo2=tiempo;
+  
+        button_P1 = digitalRead(push_buttons[2]);
+        
+      }while(button_P1==1);
+    }
+
+  }
+  else{
+    escribirNumero(0);
+    digitalWrite(led,LOW);
+  }
+}
